@@ -18,7 +18,7 @@ from .tensor_ops import SimpleBackend, TensorBackend
 if TYPE_CHECKING:
     from typing import Any, List, Tuple
 
-    from .tensor import Tensor
+    from .tensor import Tensor, Shape, Strides
     from .tensor_data import UserIndex, UserShape
 
 
@@ -99,51 +99,65 @@ class Add(Function):
 class Mul(Function):
     @staticmethod
     def forward(ctx: Context, a: Tensor, b: Tensor) -> Tensor:
-        raise NotImplementedError("Need to include this file from past assignment.")
+        ctx.save_for_backward(a, b)
+        return a.f.mul_zip(a, b)
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, Tensor]:
-        raise NotImplementedError("Need to include this file from past assignment.")
+        (a, b) = ctx.saved_tensors
+
+        da = grad_output.f.mul_zip(grad_output, b)
+        db = grad_output.f.mul_zip(grad_output, a)
+
+        return da, db
 
 
 class Sigmoid(Function):
     @staticmethod
     def forward(ctx: Context, t1: Tensor) -> Tensor:
-        raise NotImplementedError("Need to include this file from past assignment.")
+        ctx.save_for_backward(t1)
+        return t1.f.sigmoid_map(t1)
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tensor:
-        raise NotImplementedError("Need to include this file from past assignment.")
+        (t1,) = ctx.saved_tensors
+        return grad_output.f.sigmoid_back_zip(t1, grad_output)
 
 
 class ReLU(Function):
     @staticmethod
     def forward(ctx: Context, t1: Tensor) -> Tensor:
-        raise NotImplementedError("Need to include this file from past assignment.")
+        ctx.save_for_backward(t1)
+        return t1.f.relu_map(t1)
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tensor:
-        raise NotImplementedError("Need to include this file from past assignment.")
+        (t1,) = ctx.saved_tensors
+        return grad_output.f.relu_back_zip(t1, grad_output)
 
 
 class Log(Function):
     @staticmethod
     def forward(ctx: Context, t1: Tensor) -> Tensor:
-        raise NotImplementedError("Need to include this file from past assignment.")
+        ctx.save_for_backward(t1)
+        return t1.f.log_map(t1)
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tensor:
-        raise NotImplementedError("Need to include this file from past assignment.")
+        (t1,) = ctx.saved_tensors
+        return grad_output.f.log_back_zip(t1, grad_output)
 
 
 class Exp(Function):
     @staticmethod
     def forward(ctx: Context, t1: Tensor) -> Tensor:
-        raise NotImplementedError("Need to include this file from past assignment.")
+        ctx.save_for_backward(t1)
+        return t1.f.exp_map(t1)
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tensor:
-        raise NotImplementedError("Need to include this file from past assignment.")
+        (t1,) = ctx.saved_tensors
+        return grad_output.f.exp_back_zip(t1, grad_output)
 
 
 class Sum(Function):
@@ -170,37 +184,75 @@ class All(Function):
 class LT(Function):
     @staticmethod
     def forward(ctx: Context, a: Tensor, b: Tensor) -> Tensor:
-        raise NotImplementedError("Need to include this file from past assignment.")
+        ctx.save_for_backward(a, b)
+        return a.f.lt_zip(a, b)
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, Tensor]:
-        raise NotImplementedError("Need to include this file from past assignment.")
+        (a, b) = ctx.saved_tensors
+        return grad_output.zeros(a.shape), grad_output.zeros(b.shape)
 
 
 class EQ(Function):
     @staticmethod
     def forward(ctx: Context, a: Tensor, b: Tensor) -> Tensor:
-        raise NotImplementedError("Need to include this file from past assignment.")
+        ctx.save_for_backward(a, b)
+        return a.f.eq_zip(a, b)
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, Tensor]:
-        raise NotImplementedError("Need to include this file from past assignment.")
+        (a, b) = ctx.saved_tensors
+        return grad_output.zeros(a.shape), grad_output.zeros(b.shape)
 
 
 class IsClose(Function):
     @staticmethod
     def forward(ctx: Context, a: Tensor, b: Tensor) -> Tensor:
-        raise NotImplementedError("Need to include this file from past assignment.")
+        return a.f.is_close_zip(a, b)
 
 
 class Permute(Function):
+
+    @staticmethod
+    def to_tuple(t: Tensor | Shape | Strides) -> tuple[int, ...]:
+        """
+        Converts a tensor or numpy array to an int tuple
+        """
+        return tuple([int(t[i]) for i in range(t.size)])
+
     @staticmethod
     def forward(ctx: Context, a: Tensor, order: Tensor) -> Tensor:
-        raise NotImplementedError("Need to include this file from past assignment.")
+        ctx.save_for_backward(order)
+        new_tensor_data = a._tensor.permute(*Permute.to_tuple(order))
+        new_t_storage, new_t_shape, new_t_strides = new_tensor_data.tuple()
+
+        return minitorch.Tensor.make(
+            new_t_storage,
+            Permute.to_tuple(new_t_shape),
+            strides=Permute.to_tuple(new_t_strides),
+            backend=a.backend,
+        )
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, float]:
-        raise NotImplementedError("Need to include this file from past assignment.")
+        (order,) = ctx.saved_tensors
+        restore_order = grad_output.zeros((order.size,))
+
+        # Generate inverse permutation
+        for i in range(order.size):
+            restore_order[int(order[i])] = i
+
+        new_tensor_data = grad_output._tensor.permute(*Permute.to_tuple(restore_order))
+        new_t_storage, new_t_shape, new_t_strides = new_tensor_data.tuple()
+        return (
+            minitorch.Tensor.make(
+                new_t_storage,
+                Permute.to_tuple(new_t_shape),
+                strides=Permute.to_tuple(new_t_strides),
+                backend=grad_output.backend,
+            ),
+            0.0,
+        )
 
 
 class View(Function):

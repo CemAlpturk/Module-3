@@ -42,8 +42,10 @@ def index_to_position(index: Index, strides: Strides) -> int:
     Returns:
         Position in storage
     """
+    index = np.asanyarray(index)
+    strides = np.asanyarray(strides)
 
-    raise NotImplementedError("Need to include this file from past assignment.")
+    return int((index * strides).sum())
 
 
 def to_index(ordinal: int, shape: Shape, out_index: OutIndex) -> None:
@@ -59,7 +61,9 @@ def to_index(ordinal: int, shape: Shape, out_index: OutIndex) -> None:
         out_index : return index corresponding to position.
 
     """
-    raise NotImplementedError("Need to include this file from past assignment.")
+    for i in reversed(range(len(shape))):
+        out_index[i] = ordinal % shape[i]
+        ordinal = ordinal // shape[i]
 
 
 def broadcast_index(
@@ -81,7 +85,12 @@ def broadcast_index(
     Returns:
         None
     """
-    raise NotImplementedError("Need to include this file from past assignment.")
+    shape_size_diff = len(big_shape) - len(shape)
+    for i in range(shape.size - 1, -1, -1):
+        if shape[i] == 1:
+            out_index[i] = 0
+        else:
+            out_index[i] = big_index[i + shape_size_diff]
 
 
 def shape_broadcast(shape1: UserShape, shape2: UserShape) -> UserShape:
@@ -98,7 +107,25 @@ def shape_broadcast(shape1: UserShape, shape2: UserShape) -> UserShape:
     Raises:
         IndexingError : if cannot broadcast
     """
-    raise NotImplementedError("Need to include this file from past assignment.")
+    # Add shape (1) to the left of the smaller shape
+    if len(shape1) < len(shape2):
+        shape1 = (1,) * (len(shape2) - len(shape1)) + tuple(shape1)
+    else:
+        shape2 = (1,) * (len(shape1) - len(shape2)) + tuple(shape2)
+
+    new_shape: list[int] = []
+
+    for i in range(len(shape1)):
+        d1, d2 = shape1[i], shape2[i]
+        if d1 == d2 or d1 == 1 or d2 == 1:
+            # Broadcast
+            new_shape.append(max(d1, d2))
+        else:
+            raise IndexingError(
+                f"The size of tensor a ({d1}) must match the size of tensor b ({d2}) at non-singleton dimension {i}"
+            )
+
+    return tuple(new_shape)
 
 
 def strides_from_shape(shape: UserShape) -> UserStrides:
@@ -209,7 +236,7 @@ class TensorData:
         Permute the dimensions of the tensor.
 
         Args:
-            *order: a permutation of the dimensions
+            order (list): a permutation of the dimensions
 
         Returns:
             New `TensorData` with the same storage and a new dimension order.
@@ -218,7 +245,15 @@ class TensorData:
             range(len(self.shape))
         ), f"Must give a position to each dimension. Shape: {self.shape} Order: {order}"
 
-        raise NotImplementedError("Need to include this file from past assignment.")
+        idxs = np.array(order)
+        new_shape: UserShape = tuple(int(x) for x in self._shape[idxs])
+        new_strides = tuple(int(x) for x in self._strides[idxs])
+
+        return TensorData(
+            storage=self._storage,
+            shape=new_shape,
+            strides=new_strides,
+        )
 
     def to_string(self) -> str:
         s = ""
