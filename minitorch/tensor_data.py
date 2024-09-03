@@ -42,8 +42,8 @@ def index_to_position(index: Index, strides: Strides) -> int:
     Returns:
         Position in storage
     """
-    index = np.asanyarray(index)
-    strides = np.asanyarray(strides)
+    index = np.asarray(index)
+    strides = np.asarray(strides)
 
     return int((index * strides).sum())
 
@@ -61,9 +61,11 @@ def to_index(ordinal: int, shape: Shape, out_index: OutIndex) -> None:
         out_index : return index corresponding to position.
 
     """
-    for i in reversed(range(len(shape))):
-        out_index[i] = ordinal % shape[i]
-        ordinal = ordinal // shape[i]
+    current_size = 1
+    for i in range(len(shape) - 1, -1, -1):
+        dim: int = shape[i]
+        out_index[i] = (ordinal // current_size) % dim
+        current_size *= dim
 
 
 def broadcast_index(

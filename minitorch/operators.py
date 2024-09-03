@@ -125,7 +125,7 @@ def sigmoid_back(x: float, grad: float) -> float:
 def exp_back(x: float, grad: float) -> float:
     """Backward exp."""
 
-    return exp(x)
+    return grad * math.exp(x)
 
 
 # ## Task 0.3
