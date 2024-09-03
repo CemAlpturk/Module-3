@@ -49,7 +49,7 @@ def add(x: float, y: float) -> float:
 
 def neg(x: float) -> float:
     """Negates a number."""
-    return -1.0 * x
+    return -x
 
 
 def lt(x: float, y: float) -> bool:
@@ -82,7 +82,7 @@ def sigmoid(x: float) -> float:
 
 def relu(x: float) -> float:
     """Applies the ReLU function."""
-    return max(0.0, x)
+    return x if x > 0.0 else 0.0
 
 
 def log(x: float) -> float:
@@ -118,8 +118,8 @@ def relu_back(x: float, grad: float) -> float:
 def sigmoid_back(x: float, grad: float) -> float:
     """Backward sigmoid."""
 
-    s = sigmoid(x)
-    return s * (1 - s) * grad
+    sig_x = 1.0 / (1.0 + math.exp(-x)) if x >= 0 else math.exp(x) / (1.0 + math.exp(x))
+    return grad * sig_x * (1 - sig_x)
 
 
 def exp_back(x: float, grad: float) -> float:
